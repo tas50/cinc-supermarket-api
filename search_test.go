@@ -5,8 +5,49 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
+
+func TestSearchCookbooksAlwaysSendsQ(t *testing.T) {
+	// The q parameter is required by the API. The library must send
+	// it even when empty — otherwise the request is meaningless.
+	var got string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/search", func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RawQuery
+		_, _ = io.WriteString(w, `{"total":0,"start":0,"items":[]}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Search.Cookbooks(context.Background(), SearchOptions{}); err != nil {
+		t.Fatalf("Search.Cookbooks: %v", err)
+	}
+	if !strings.Contains(got, "q=") {
+		t.Errorf("query = %q, want q= to be present even when empty", got)
+	}
+}
+
+func TestSearchCookbooksURLEncodesSpecialChars(t *testing.T) {
+	var got string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/search", func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RawQuery
+		_, _ = io.WriteString(w, `{"total":0,"start":0,"items":[]}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Search.Cookbooks(context.Background(), SearchOptions{Q: "a b&c=d"}); err != nil {
+		t.Fatalf("Search.Cookbooks: %v", err)
+	}
+	if !strings.Contains(got, "q=a+b%26c%3Dd") {
+		t.Errorf("query = %q, want characters to be URL-encoded", got)
+	}
+}
 
 func TestSearchCookbooksSendsQueryAndPaging(t *testing.T) {
 	var got string

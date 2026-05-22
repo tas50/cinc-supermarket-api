@@ -2,11 +2,28 @@ package supermarket
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestUsersGetMapsNotFound(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/users/ghost", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error_messages":["no user"],"error_code":"NOT_FOUND"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	_, _, err := c.Users.Get(context.Background(), "ghost")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
 
 func TestUsersGetReturnsProfile(t *testing.T) {
 	mux := http.NewServeMux()

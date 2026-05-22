@@ -275,6 +275,158 @@ func TestCookbooksDeleteVersionRefusesWithoutCredentials(t *testing.T) {
 	}
 }
 
+func TestCookbooksListSendsNoQueryWhenOptionsEmpty(t *testing.T) {
+	var rawQuery string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks", func(w http.ResponseWriter, r *http.Request) {
+		rawQuery = r.URL.RawQuery
+		_, _ = io.WriteString(w, `{"total":0,"start":0,"items":[]}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Cookbooks.List(context.Background(), ListOptions{}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if rawQuery != "" {
+		t.Errorf("RawQuery = %q, want empty when all options are zero", rawQuery)
+	}
+}
+
+func TestCookbooksGetURLEscapesCookbookName(t *testing.T) {
+	// Cookbook names should never contain spaces in practice, but the
+	// library shouldn't break if a caller passes one — it should
+	// URL-escape it rather than send a malformed request.
+	var gotPath string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/", func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = io.WriteString(w, `{"name":"weird name"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Cookbooks.Get(context.Background(), "weird name"); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	// The path on the wire is URL-decoded by net/http's mux; what we
+	// assert is that the request reached the server intact rather than
+	// dropping the suffix.
+	if !strings.HasSuffix(gotPath, "weird name") {
+		t.Errorf("server saw path %q, want it to include the cookbook name", gotPath)
+	}
+}
+
+func TestCookbooksGetVersionAcceptsAlreadyUnderscoredForm(t *testing.T) {
+	var gotPath string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/apache2/versions/1_2_3", func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = io.WriteString(w, `{"version":"1.2.3","cookbook":"u","file":"f"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Cookbooks.GetVersion(context.Background(), "apache2", "1_2_3"); err != nil {
+		t.Fatalf("GetVersion: %v", err)
+	}
+	if !strings.HasSuffix(gotPath, "/1_2_3") {
+		t.Errorf("path = %q, want underscore form preserved (no double rewrite)", gotPath)
+	}
+}
+
+func TestCookbooksDownloadReturnsErrorOnMissingVersion(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/apache2/versions/9_9_9/download", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error_messages":["No such version"],"error_code":"NOT_FOUND"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	body, _, err := c.Cookbooks.Download(context.Background(), "apache2", "9.9.9")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+	if body != nil {
+		t.Error("expected nil body on error path")
+	}
+}
+
+func TestCookbooksDeleteMapsForbidden(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/apache2", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = io.WriteString(w, `{"error_messages":["not your cookbook"],"error_code":"FORBIDDEN"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, true)
+
+	_, _, err := c.Cookbooks.Delete(context.Background(), "apache2")
+	if !errors.Is(err, ErrForbidden) {
+		t.Errorf("err = %v, want ErrForbidden", err)
+	}
+}
+
+func TestCookbooksShareWithEmptyTarballStillBuildsBody(t *testing.T) {
+	// Some callers may want to "share" with no tarball (eg. test
+	// scaffolding). The library should still produce a syntactically
+	// valid multipart body and let the server reject it.
+	var gotTarball []byte
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks", func(w http.ResponseWriter, r *http.Request) {
+		_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		mr := multipart.NewReader(r.Body, params["boundary"])
+		for {
+			part, err := mr.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if part.FormName() == "tarball" {
+				gotTarball, _ = io.ReadAll(part)
+			}
+		}
+		_, _ = io.WriteString(w, `{"name":"apache2"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, true)
+
+	if _, _, err := c.Cookbooks.Share(context.Background(), "apache2", "Other", bytes.NewReader(nil)); err != nil {
+		t.Fatalf("Share with empty tarball: %v", err)
+	}
+	if len(gotTarball) != 0 {
+		t.Errorf("server saw tarball bytes = %d, want 0", len(gotTarball))
+	}
+}
+
+func TestCookbooksWriteOpsAllRefuseWithoutCredentials(t *testing.T) {
+	srv := httptest.NewServer(http.NewServeMux())
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	if _, _, err := c.Cookbooks.Share(context.Background(), "x", "Other", strings.NewReader("")); !errors.Is(err, ErrUnauthenticatedWrite) {
+		t.Errorf("Share err = %v, want ErrUnauthenticatedWrite", err)
+	}
+	if _, _, err := c.Cookbooks.Delete(context.Background(), "x"); !errors.Is(err, ErrUnauthenticatedWrite) {
+		t.Errorf("Delete err = %v, want ErrUnauthenticatedWrite", err)
+	}
+	if _, _, err := c.Cookbooks.DeleteVersion(context.Background(), "x", "1.0.0"); !errors.Is(err, ErrUnauthenticatedWrite) {
+		t.Errorf("DeleteVersion err = %v, want ErrUnauthenticatedWrite", err)
+	}
+}
+
 func TestCookbooksContingentReturnsList(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/cookbooks/apache2/contingent", func(w http.ResponseWriter, _ *http.Request) {

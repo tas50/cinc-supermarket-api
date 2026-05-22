@@ -27,6 +27,26 @@ func TestHealthStatusReturnsStatus(t *testing.T) {
 	}
 }
 
+func TestHealthStatusIgnoresUnknownFields(t *testing.T) {
+	// Forward-compat: new fields on the server response shouldn't
+	// break decoding into our Health struct.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/health", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"status":"ok","new_field":"future","version":42}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	h, _, err := c.Health.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Health.Status: %v", err)
+	}
+	if h.Status != "ok" {
+		t.Errorf("status = %q", h.Status)
+	}
+}
+
 func TestHealthMetricsReturnsRawJSON(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/metrics", func(w http.ResponseWriter, _ *http.Request) {

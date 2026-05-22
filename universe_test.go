@@ -37,6 +37,24 @@ func TestUniverseGetDecodesNestedMap(t *testing.T) {
 	}
 }
 
+func TestUniverseGetHandlesEmptyGraph(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/universe", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	uni, _, err := c.Universe.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Universe.Get: %v", err)
+	}
+	if len(uni) != 0 {
+		t.Errorf("expected empty universe, got %v", uni)
+	}
+}
+
 func TestUniverseGetStreamLetsCallerDecodeIncrementally(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/universe", func(w http.ResponseWriter, _ *http.Request) {
