@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewClientDefaultsBaseURL(t *testing.T) {
@@ -52,5 +53,42 @@ func TestParseKeyErrorMessagePrefixed(t *testing.T) {
 	_, err := ParseKey([]byte("not a pem block"))
 	if err == nil || !strings.Contains(err.Error(), "supermarket:") {
 		t.Errorf("err = %v, want a supermarket-prefixed error", err)
+	}
+}
+
+func TestNewClientTrimsTrailingSlashFromBaseURL(t *testing.T) {
+	c, err := NewClient(Config{BaseURL: "https://example.test/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.baseURL.String(); got != "https://example.test" {
+		t.Errorf("baseURL = %q, want trailing slash stripped", got)
+	}
+}
+
+func TestNewClientRejectsURLWithoutHost(t *testing.T) {
+	if _, err := NewClient(Config{BaseURL: "/path-only"}); err == nil {
+		t.Error("expected an error for a BaseURL with no host")
+	}
+}
+
+func TestNewClientAttachesAllServices(t *testing.T) {
+	c, err := NewClient(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Cookbooks == nil || c.Search == nil || c.Tools == nil ||
+		c.Users == nil || c.Universe == nil || c.Health == nil {
+		t.Error("expected every service field to be wired up")
+	}
+}
+
+func TestClientTimestampIsRFC3339UTC(t *testing.T) {
+	c, _ := NewClient(Config{})
+	c.clock = func() time.Time { return time.Unix(1700000000, 0).UTC() }
+	got := c.timestamp()
+	want := "2023-11-14T22:13:20Z"
+	if got != want {
+		t.Errorf("timestamp = %q, want %q", got, want)
 	}
 }
