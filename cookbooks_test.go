@@ -3,6 +3,8 @@ package supermarket
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +14,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/tas50/cinc-supermarket/internal/signing"
 )
 
 func TestCookbooksListReturnsPaginatedResults(t *testing.T) {
@@ -238,6 +242,86 @@ func TestCookbooksShareSendsMultipartAndIsSigned(t *testing.T) {
 	}
 	if cb.Name != "apache2" {
 		t.Errorf("response cookbook = %+v", cb)
+	}
+}
+
+// TestCookbooksShareContentHashCoversTarballOnly is a regression test
+// for the multipart content-hash bug. Chef's signed-header protocol
+// hashes only the uploaded file's bytes for X-Ops-Content-Hash, not the
+// whole multipart envelope. Signing over the full envelope makes the
+// server's RSA verification fail with a misleading 401
+// AUTHENTICATION_FAILED ("invalid public/private key pair").
+func TestCookbooksShareContentHashCoversTarballOnly(t *testing.T) {
+	tarball := []byte("FAKE-TAR-BYTES")
+
+	var (
+		gotContentHash string
+		gotFullBody    []byte
+	)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks", func(w http.ResponseWriter, r *http.Request) {
+		gotContentHash = r.Header.Get("X-Ops-Content-Hash")
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotFullBody = body
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"name":"apache2"}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, true)
+
+	if _, _, err := c.Cookbooks.Share(context.Background(), "apache2", "Web Servers", bytes.NewReader(tarball)); err != nil {
+		t.Fatalf("Share: %v", err)
+	}
+
+	b64 := func(b []byte) string {
+		sum := sha256.Sum256(b)
+		return base64.StdEncoding.EncodeToString(sum[:])
+	}
+	wantTarballHash := b64(tarball)
+	fullBodyHash := b64(gotFullBody)
+
+	if gotContentHash != wantTarballHash {
+		t.Errorf("X-Ops-Content-Hash = %q, want sha256(tarball) = %q", gotContentHash, wantTarballHash)
+	}
+	if gotContentHash == fullBodyHash {
+		t.Errorf("X-Ops-Content-Hash = %q hashes the whole multipart body; it must hash the tarball only", gotContentHash)
+	}
+	// Sanity: the full multipart body really is larger than the tarball,
+	// so the two hashes genuinely differ.
+	if len(gotFullBody) <= len(tarball) {
+		t.Fatalf("multipart body (%d bytes) not larger than tarball (%d bytes)", len(gotFullBody), len(tarball))
+	}
+}
+
+// TestShareCanonicalRequestUsesTarballHash asserts the signed canonical
+// block (the actual string that gets RSA-signed) carries the tarball-only
+// content hash, matching what the server reconstructs and verifies.
+func TestShareCanonicalRequestUsesTarballHash(t *testing.T) {
+	tarball := []byte("FAKE-TAR-BYTES")
+
+	body, gotTarball, _, err := buildShareBody("apache2", "Web Servers", bytes.NewReader(tarball))
+	if err != nil {
+		t.Fatalf("buildShareBody: %v", err)
+	}
+	if !bytes.Equal(gotTarball, tarball) {
+		t.Fatalf("buildShareBody tarball = %q, want %q", gotTarball, tarball)
+	}
+
+	canon := signing.CanonicalRequest(signing.Request{
+		Method: http.MethodPost, Path: "/api/v1/cookbooks", Body: gotTarball,
+		UserID: "tester", Timestamp: "2024-01-01T00:00:00Z",
+	})
+	want := "X-Ops-Content-Hash:" + signing.ContentHash(tarball)
+	if !strings.Contains(canon, want) {
+		t.Errorf("canonical request missing tarball content hash\nwant line: %q\ngot:\n%s", want, canon)
+	}
+	if strings.Contains(canon, "X-Ops-Content-Hash:"+signing.ContentHash(body)) {
+		t.Errorf("canonical request uses full multipart-body hash; must use tarball-only hash")
 	}
 }
 
