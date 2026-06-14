@@ -20,6 +20,14 @@ type request struct {
 	body        []byte // request body (already serialized)
 	contentType string // body's Content-Type; defaults to application/json when body is non-empty
 	sign        bool   // attach signed headers using c.username/c.key
+	// signBody, when non-nil, is the byte slice the signer hashes for
+	// X-Ops-Content-Hash instead of body. Chef's signed-header protocol
+	// has a special case for multipart file uploads: the content hash
+	// covers ONLY the uploaded file's bytes, not the whole multipart
+	// envelope. The server (mixlib-authentication) hashes the tarball
+	// file part alone, so the share upload sets this to the raw tarball
+	// bytes while body stays the full multipart payload.
+	signBody []byte
 }
 
 // doRaw sends req and returns the raw response body. GETs are retried
@@ -74,8 +82,12 @@ func (c *Client) doOnce(ctx context.Context, r request) ([]byte, *Response, erro
 		if i := strings.IndexByte(signPath, '?'); i >= 0 {
 			signPath = signPath[:i]
 		}
+		signBody := r.body
+		if r.signBody != nil {
+			signBody = r.signBody
+		}
 		hdrs, err := signing.SignHeaders(signing.Request{
-			Method: r.method, Path: signPath, Body: r.body,
+			Method: r.method, Path: signPath, Body: signBody,
 			UserID: c.username, Timestamp: c.timestamp(),
 		}, c.key)
 		if err != nil {

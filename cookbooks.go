@@ -144,7 +144,7 @@ func (s *CookbooksService) Share(ctx context.Context, name, category string, tar
 	if !s.client.canSign() {
 		return nil, nil, ErrUnauthenticatedWrite
 	}
-	body, contentType, err := buildShareBody(name, category, tarball)
+	body, tarballBytes, contentType, err := buildShareBody(name, category, tarball)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,6 +154,9 @@ func (s *CookbooksService) Share(ctx context.Context, name, category string, tar
 		body:        body,
 		contentType: contentType,
 		sign:        true,
+		// Chef signs multipart file uploads over the tarball bytes
+		// alone, not the whole multipart envelope. See request.signBody.
+		signBody: tarballBytes,
 	})
 	if err != nil {
 		return nil, resp, err
@@ -190,30 +193,38 @@ func (s *CookbooksService) DeleteVersion(ctx context.Context, name, version stri
 
 // buildShareBody assembles the multipart/form-data body the share
 // endpoint expects: a JSON "cookbook" part carrying the category, and
-// a "tarball" file part with the gzipped tar. Returns the full body
-// and the boundary-bearing Content-Type. The body is buffered into
-// memory so it can be hashed by the signer; for very large tarballs
-// callers will need to keep that in mind.
-func buildShareBody(name, category string, tarball io.Reader) ([]byte, string, error) {
+// a "tarball" file part with the gzipped tar. Returns the full body,
+// the raw tarball bytes, and the boundary-bearing Content-Type. The
+// body is buffered into memory so it can be sent as the HTTP payload;
+// the tarball bytes are returned separately because Chef's signed-header
+// protocol hashes the file part alone (not the whole multipart envelope)
+// for X-Ops-Content-Hash. For very large tarballs callers will need to
+// keep this in-memory buffering in mind.
+func buildShareBody(name, category string, tarball io.Reader) (body []byte, tarballBytes []byte, contentType string, err error) {
+	tarballBytes, err = io.ReadAll(tarball)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("supermarket: read tarball: %w", err)
+	}
+
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
 	meta, err := json.Marshal(map[string]string{"category": category})
 	if err != nil {
-		return nil, "", fmt.Errorf("supermarket: marshal share metadata: %w", err)
+		return nil, nil, "", fmt.Errorf("supermarket: marshal share metadata: %w", err)
 	}
 	if err := w.WriteField("cookbook", string(meta)); err != nil {
-		return nil, "", fmt.Errorf("supermarket: write share metadata: %w", err)
+		return nil, nil, "", fmt.Errorf("supermarket: write share metadata: %w", err)
 	}
 	tw, err := w.CreateFormFile("tarball", name+".tgz")
 	if err != nil {
-		return nil, "", fmt.Errorf("supermarket: create tarball part: %w", err)
+		return nil, nil, "", fmt.Errorf("supermarket: create tarball part: %w", err)
 	}
-	if _, err := io.Copy(tw, tarball); err != nil {
-		return nil, "", fmt.Errorf("supermarket: copy tarball: %w", err)
+	if _, err := tw.Write(tarballBytes); err != nil {
+		return nil, nil, "", fmt.Errorf("supermarket: copy tarball: %w", err)
 	}
 	if err := w.Close(); err != nil {
-		return nil, "", fmt.Errorf("supermarket: close multipart writer: %w", err)
+		return nil, nil, "", fmt.Errorf("supermarket: close multipart writer: %w", err)
 	}
-	return buf.Bytes(), w.FormDataContentType(), nil
+	return buf.Bytes(), tarballBytes, w.FormDataContentType(), nil
 }
