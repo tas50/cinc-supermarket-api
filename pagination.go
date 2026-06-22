@@ -12,8 +12,11 @@ type Page[T any] struct {
 }
 
 // HasMore reports whether the server has more results past this page.
+// A page that carries no items is always terminal, even if Total claims
+// otherwise — otherwise NextStart would not advance and a caller's
+// pagination loop would spin forever.
 func (p Page[T]) HasMore() bool {
-	return p.Start+len(p.Items) < p.Total
+	return len(p.Items) > 0 && p.Start+len(p.Items) < p.Total
 }
 
 // NextStart returns the Start offset a caller should pass to fetch the

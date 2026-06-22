@@ -48,9 +48,7 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 	}
 	hc := o.httpClient
 	if o.skipTLSVerify {
-		hc = &http.Client{Timeout: hc.Timeout, Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}}
+		hc = withInsecureTLS(hc)
 	}
 	c := &Client{
 		baseURL:    base,
@@ -67,6 +65,29 @@ func NewClient(cfg Config, opts ...Option) (*Client, error) {
 	c.Universe = &UniverseService{client: c}
 	c.Health = &HealthService{client: c}
 	return c, nil
+}
+
+// withInsecureTLS returns a copy of hc whose transport skips TLS
+// certificate verification, preserving the caller's other client and
+// transport settings (Timeout, CheckRedirect, Jar, connection-pool
+// tuning) rather than discarding a custom *http.Client. Only the TLS
+// verification flag is changed.
+func withInsecureTLS(hc *http.Client) *http.Client {
+	base := http.DefaultTransport.(*http.Transport)
+	if t, ok := hc.Transport.(*http.Transport); ok {
+		base = t
+	}
+	tr := base.Clone()
+	if tr.TLSClientConfig == nil {
+		tr.TLSClientConfig = &tls.Config{}
+	}
+	tr.TLSClientConfig.InsecureSkipVerify = true
+	return &http.Client{
+		Transport:     tr,
+		Timeout:       hc.Timeout,
+		CheckRedirect: hc.CheckRedirect,
+		Jar:           hc.Jar,
+	}
 }
 
 // canSign reports whether the client carries credentials for the

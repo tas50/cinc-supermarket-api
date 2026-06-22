@@ -39,8 +39,8 @@ func (c *Client) doRaw(ctx context.Context, req request) ([]byte, *Response, err
 	var attempt int
 	for {
 		data, resp, err := c.doOnce(ctx, req)
-		retriable := err == nil && resp != nil && resp.StatusCode >= 500
-		if (retriable || isNetErr(err)) && req.method == http.MethodGet && attempt < c.opts.maxRetries {
+		retriable := (resp != nil && resp.StatusCode >= 500) || isNetErr(err)
+		if retriable && req.method == http.MethodGet && attempt < c.opts.maxRetries {
 			attempt++
 			continue
 		}
@@ -48,11 +48,20 @@ func (c *Client) doRaw(ctx context.Context, req request) ([]byte, *Response, err
 	}
 }
 
+// isNetErr reports whether err is a transient transport-level failure
+// worth retrying. HTTP-status errors (*ErrorResponse) and context
+// cancellation are deliberately excluded: a 4xx is a definitive answer
+// and a cancelled context means the caller has given up. 5xx responses
+// are handled separately by the status check in doRaw.
 func isNetErr(err error) bool {
 	if err == nil {
 		return false
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var er *ErrorResponse
+	if errors.As(err, &er) {
 		return false
 	}
 	return true
