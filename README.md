@@ -27,6 +27,12 @@ private key registered on that user's Supermarket profile:
 A `Client` with no credentials refuses write calls with
 `ErrUnauthenticatedWrite` without contacting the server.
 
+Version helpers work on the version strings cookbooks return, without a
+full semver dependency: `CompareVersions(a, b)` orders two versions,
+`LatestVersion(versions)` picks the newest, and `VersionFromURL(u)`
+pulls the dotted version out of a `/versions/<v>` URL (Supermarket
+encodes the dots as underscores).
+
 ## Coverage
 
 | Resource | Endpoint                                              | Method          |
