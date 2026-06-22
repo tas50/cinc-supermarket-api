@@ -13,7 +13,7 @@ type User struct {
 	Company   string        `json:"company"`
 	GitHub    []string      `json:"github"`
 	Twitter   string        `json:"twitter"`
-	IRC       string        `json:"irc"`
+	Slack     string        `json:"slack"`
 	Cookbooks UserCookbooks `json:"cookbooks"`
 	Tools     UserTools     `json:"tools"`
 }

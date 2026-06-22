@@ -55,3 +55,30 @@ func TestUsersGetReturnsProfile(t *testing.T) {
 		t.Errorf("Owns = %+v", u.Cookbooks.Owns)
 	}
 }
+
+func TestUsersGetExposesSlack(t *testing.T) {
+	// The profile endpoint returns the contact handle under "slack"
+	// (the old "irc" field is gone); make sure it decodes.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/users/alice", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{
+			"username":"alice","name":"Alice","twitter":"@alice","slack":"alice-slack",
+			"github":[],"cookbooks":{"owns":[],"collaborates":[],"follows":[]},"tools":{"owns":[]}
+		}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	u, _, err := c.Users.Get(context.Background(), "alice")
+	if err != nil {
+		t.Fatalf("Users.Get: %v", err)
+	}
+	if u.Slack != "alice-slack" {
+		t.Errorf("Slack = %q, want alice-slack", u.Slack)
+	}
+	if u.Twitter != "@alice" {
+		t.Errorf("Twitter = %q", u.Twitter)
+	}
+}

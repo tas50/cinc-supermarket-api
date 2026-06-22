@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tas50/cinc-supermarket/internal/signing"
 )
@@ -75,6 +76,83 @@ func TestCookbooksGetReturnsFullRecord(t *testing.T) {
 	}
 	if cb.Name != "apache2" || cb.LatestVersion != "1.2.0" || cb.Metrics.Downloads.Total != 99 {
 		t.Errorf("cb = %+v", cb)
+	}
+}
+
+func TestCookbooksGetExposesURLsAndAdoption(t *testing.T) {
+	// source_url, issues_url, and up_for_adoption are returned by the
+	// real /cookbooks/:name endpoint; make sure they decode instead of
+	// being silently dropped.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/apache2", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{
+			"name":"apache2","maintainer":"alice","latest_version":"1.2.0",
+			"source_url":"https://github.com/sous-chefs/apache2",
+			"issues_url":"https://github.com/sous-chefs/apache2/issues",
+			"up_for_adoption":true,
+			"metrics":{"downloads":{"total":1}}
+		}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	cb, _, err := c.Cookbooks.Get(context.Background(), "apache2")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if cb.SourceURL != "https://github.com/sous-chefs/apache2" {
+		t.Errorf("SourceURL = %q", cb.SourceURL)
+	}
+	if cb.IssuesURL != "https://github.com/sous-chefs/apache2/issues" {
+		t.Errorf("IssuesURL = %q", cb.IssuesURL)
+	}
+	if !cb.UpForAdoption {
+		t.Error("UpForAdoption = false, want true")
+	}
+}
+
+func TestCookbooksGetVersionExposesSupportsAndQualityMetrics(t *testing.T) {
+	// The version endpoint returns platform constraints under "supports"
+	// (not "platforms"), plus "published_at" and a "quality_metrics"
+	// array. All three were previously dropped or mis-mapped.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/cookbooks/apache2/versions/1_2_0", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{
+			"version":"1.2.0","license":"Apache-2.0","cookbook":"u","file":"f",
+			"published_at":"2026-03-22T06:55:12Z",
+			"supports":{"ubuntu":">= 22.04","debian":">= 12.0"},
+			"dependencies":{"apt":">= 0.0.0"},
+			"quality_metrics":[
+				{"name":"Collaborator Number","failed":false,"feedback":"passed with 2 collaborators."},
+				{"name":"Version Tag","failed":true,"feedback":"Failure: needs a tag."}
+			]
+		}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := newTestClient(t, srv, false)
+
+	v, _, err := c.Cookbooks.GetVersion(context.Background(), "apache2", "1.2.0")
+	if err != nil {
+		t.Fatalf("GetVersion: %v", err)
+	}
+	if v.Supports["ubuntu"] != ">= 22.04" || v.Supports["debian"] != ">= 12.0" {
+		t.Errorf("Supports = %+v", v.Supports)
+	}
+	if got := v.PublishedAt.UTC().Format(time.RFC3339); got != "2026-03-22T06:55:12Z" {
+		t.Errorf("PublishedAt = %q, want 2026-03-22T06:55:12Z", got)
+	}
+	if len(v.QualityMetrics) != 2 {
+		t.Fatalf("QualityMetrics len = %d, want 2", len(v.QualityMetrics))
+	}
+	if v.QualityMetrics[0].Name != "Collaborator Number" || v.QualityMetrics[0].Failed {
+		t.Errorf("QualityMetrics[0] = %+v", v.QualityMetrics[0])
+	}
+	if !v.QualityMetrics[1].Failed || v.QualityMetrics[1].Feedback == "" {
+		t.Errorf("QualityMetrics[1] = %+v", v.QualityMetrics[1])
 	}
 }
 
