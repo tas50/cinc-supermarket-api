@@ -20,10 +20,13 @@ type Cookbook struct {
 	Category      string          `json:"category"`
 	LatestVersion string          `json:"latest_version"`
 	ExternalURL   string          `json:"external_url"`
+	SourceURL     string          `json:"source_url"`
+	IssuesURL     string          `json:"issues_url"`
 	AverageRating *float64        `json:"average_rating"`
 	CreatedAt     time.Time       `json:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at"`
 	Deprecated    bool            `json:"deprecated"`
+	UpForAdoption bool            `json:"up_for_adoption"`
 	Versions      []string        `json:"versions"`
 	Metrics       CookbookMetrics `json:"metrics"`
 }
@@ -57,10 +60,23 @@ type CookbookVersion struct {
 	License       string            `json:"license"`
 	TarballSize   int64             `json:"tarball_file_size"`
 	AverageRating *float64          `json:"average_rating"`
+	PublishedAt   time.Time         `json:"published_at"`
 	Cookbook      string            `json:"cookbook"` // URL of the cookbook
 	File          string            `json:"file"`     // URL of the tarball
 	Dependencies  map[string]string `json:"dependencies"`
-	Platforms     map[string]string `json:"platforms"`
+	// Supports maps platform name to a version constraint. The API
+	// returns this under the "supports" key (mirroring metadata.rb).
+	Supports       map[string]string `json:"supports"`
+	QualityMetrics []QualityMetric   `json:"quality_metrics"`
+}
+
+// QualityMetric is one entry in a cookbook version's quality_metrics
+// array: the Fieri/cookstyle evaluation results shown on the version
+// page (collaborator count, version tag, cookstyle, no-binaries, etc.).
+type QualityMetric struct {
+	Name     string `json:"name"`
+	Failed   bool   `json:"failed"`
+	Feedback string `json:"feedback"`
 }
 
 // ListOptions configures GET /cookbooks.
