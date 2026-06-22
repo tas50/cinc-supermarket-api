@@ -42,6 +42,20 @@ func TestPageHandlesOverflowGracefully(t *testing.T) {
 	}
 }
 
+func TestPageEmptyItemsDoesNotAdvance(t *testing.T) {
+	// A server that reports Total greater than Start but returns no
+	// items (a hiccup, or a Start past the real end) must not trick a
+	// caller into an infinite pagination loop: HasMore is false and
+	// NextStart does not return a non-advancing offset.
+	p := Page[string]{Start: 0, Total: 10, Items: nil}
+	if p.HasMore() {
+		t.Error("HasMore must be false when the page carries no items")
+	}
+	if got := p.NextStart(); got != 0 {
+		t.Errorf("NextStart on an empty page = %d, want 0 (no infinite loop)", got)
+	}
+}
+
 func TestApplyPageQueryOmitsZeroValues(t *testing.T) {
 	q := url.Values{}
 	applyPageQuery(q, 0, 0)

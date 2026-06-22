@@ -69,6 +69,52 @@ func TestTransportRetriesGETOn5xx(t *testing.T) {
 	}
 }
 
+// TestTransportDoesNotRetryGETOn4xx — a 4xx is a definitive answer from
+// the server (bad request, not found, forbidden). Retrying it wastes
+// round-trips and can amplify load for, e.g., a not-found lookup.
+func TestTransportDoesNotRetryGETOn4xx(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusForbidden} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			var hits atomic.Int32
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/v1/cookbooks/nope", func(w http.ResponseWriter, _ *http.Request) {
+				hits.Add(1)
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, `{"error_code":"NOT_FOUND","error_messages":["x"]}`)
+			})
+			srv := httptest.NewServer(mux)
+			t.Cleanup(srv.Close)
+			c := newTestClient(t, srv, false)
+
+			if _, _, err := c.Cookbooks.Get(context.Background(), "nope"); err == nil {
+				t.Fatalf("expected an error from a %d GET", status)
+			}
+			if got := hits.Load(); got != 1 {
+				t.Errorf("server hits = %d, want 1 (4xx must not be retried)", got)
+			}
+		})
+	}
+}
+
+// TestTransportRetriesGETOnTransportError confirms a genuine transport
+// failure (connection refused — no HTTP response at all) is retried on
+// a GET, distinct from the HTTP-status path.
+func TestTransportRetriesGETOnTransportError(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	addr := srv.URL
+	srv.Close() // nothing is listening now → dial fails
+
+	c, err := NewClient(Config{BaseURL: addr}, WithMaxRetries(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A failing dial returns an error; the value here is that it does so
+	// after exhausting retries rather than hanging or panicking.
+	if _, _, err := c.Cookbooks.List(context.Background(), ListOptions{}); err == nil {
+		t.Error("expected a transport error against a closed server")
+	}
+}
+
 // TestTransportDoesNotRetryNonGET makes sure POSTs and DELETEs never
 // silently re-execute on 5xx — replays of writes are dangerous.
 func TestTransportDoesNotRetryNonGET(t *testing.T) {

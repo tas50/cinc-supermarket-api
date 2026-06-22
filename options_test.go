@@ -62,6 +62,38 @@ func TestWithUserAgentOverridesDefault(t *testing.T) {
 	}
 }
 
+func TestWithSkipTLSVerifyPreservesCustomClient(t *testing.T) {
+	// When a caller supplies their own *http.Client and also asks to
+	// skip TLS verification, the custom transport settings and client
+	// fields must survive — only InsecureSkipVerify should be flipped on.
+	custom := &http.Client{
+		Timeout:       42 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		Transport:     &http.Transport{MaxIdleConns: 99},
+	}
+	c, err := NewClient(Config{BaseURL: "https://x.test"},
+		WithHTTPClient(custom), WithSkipTLSVerify(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.httpClient.Timeout != 42*time.Second {
+		t.Errorf("Timeout = %v, want 42s (custom client dropped)", c.httpClient.Timeout)
+	}
+	if c.httpClient.CheckRedirect == nil {
+		t.Error("CheckRedirect was dropped from the custom client")
+	}
+	tr, ok := c.httpClient.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("transport = %T, want *http.Transport", c.httpClient.Transport)
+	}
+	if tr.MaxIdleConns != 99 {
+		t.Errorf("MaxIdleConns = %d, want 99 (custom transport settings dropped)", tr.MaxIdleConns)
+	}
+	if tr.TLSClientConfig == nil || !tr.TLSClientConfig.InsecureSkipVerify {
+		t.Error("InsecureSkipVerify = false, want true")
+	}
+}
+
 func TestWithSkipTLSVerifyEnablesInsecureTransport(t *testing.T) {
 	c, err := NewClient(Config{BaseURL: "https://x.test"}, WithSkipTLSVerify(true))
 	if err != nil {
