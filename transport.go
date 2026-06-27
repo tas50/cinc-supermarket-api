@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tas50/cinc-supermarket/internal/signing"
+	"github.com/tas50/cinc-supermarket-api/internal/signing"
 )
 
 // request is the shared shape every API call funnels through.
