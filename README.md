@@ -64,6 +64,48 @@ Supermarket's `{error_messages, error_code}` envelope. Use
 class of failure without dealing with the fact that Supermarket
 returns 400 with `error_code=NOT_FOUND` rather than 404.
 
+## Testing
+
+`go test ./...` runs the unit suite: it's fast, deterministic, and needs
+neither network nor Ruby. It includes:
+
+- **An always-on signing-version guard** (`internal/signing`) asserting we
+  sign with a version the public Supermarket verifier accepts (`1.0`/`1.1`).
+  This is the cheap insurance against the v1.3-class bug where every signed
+  upload 401'd: a 1.3 signature is valid mixlib output, but the server won't
+  accept it.
+- **A contract replay suite** that decodes recorded production responses under
+  `testdata/contract/` through the public types, so a decoder regression
+  fails CI deterministically.
+
+Two extra layers reach for outside resources and are gated so the default run
+stays fast:
+
+- **Gem-backed verifier test** (`internal/signing`): runs our signed headers
+  through mixlib-authentication's real server-side
+  `SignatureVerification` (the gold standard) and proves a synthetic v1.3
+  request is rejected. It needs Ruby plus the `mixlib-authentication` gem
+  (`gem install mixlib-authentication`); without them it skips cleanly rather
+  than failing.
+
+- **Live contract suite** — the drift alarm against the real API:
+
+  ```
+  go test -tags contract ./...
+  ```
+
+  It needs network access to `https://supermarket.chef.io` and hits the
+  anonymous read endpoints (list + pagination, search, cookbook show, a
+  specific version, `/universe`, tools, and a user record) through the actual
+  client. It asserts on shape, types, and required fields — not volatile
+  values — and fails (naming the field) if production drifts from what the
+  client depends on. It is intentionally excluded from the default suite.
+
+  Coverage boundary: the live suite covers anonymous **reads**; the signed
+  **write** path (share/delete) is guarded deterministically by the version
+  guard and the mixlib verifier test. A true live signed upload still needs a
+  Supermarket account or a local instance — future work.
+
 ## License
 
 See LICENSE.
