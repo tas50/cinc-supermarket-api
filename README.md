@@ -13,8 +13,9 @@ Read endpoints are anonymous:
     c, _ := supermarket.NewClient(supermarket.Config{})
     cb, _, _ := c.Cookbooks.Get(context.Background(), "apache2")
 
-Write endpoints (share, delete) use the Chef v1.3 signed-header
-protocol. The credentials are the Supermarket username and the RSA
+Write endpoints (share, delete) use the Chef mixlib-authentication
+signed-header protocol (version 1.1, SHA-1 — the version the public
+Supermarket accepts). The credentials are the Supermarket username and the RSA
 private key registered on that user's Supermarket profile:
 
     key, _ := supermarket.LoadKeyFile("/home/me/.chef/me.pem")

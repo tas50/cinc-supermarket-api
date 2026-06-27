@@ -3,7 +3,7 @@ package supermarket
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
+	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -305,7 +305,7 @@ func TestCookbooksShareSendsMultipartAndIsSigned(t *testing.T) {
 	if gotMethod != http.MethodPost {
 		t.Errorf("method = %q, want POST", gotMethod)
 	}
-	if gotSign != "version=1.3" {
+	if gotSign != "algorithm=sha1;version=1.1;" {
 		t.Errorf("X-Ops-Sign = %q, want signed request", gotSign)
 	}
 	var meta map[string]string
@@ -357,14 +357,14 @@ func TestCookbooksShareContentHashCoversTarballOnly(t *testing.T) {
 	}
 
 	b64 := func(b []byte) string {
-		sum := sha256.Sum256(b)
+		sum := sha1.Sum(b)
 		return base64.StdEncoding.EncodeToString(sum[:])
 	}
 	wantTarballHash := b64(tarball)
 	fullBodyHash := b64(gotFullBody)
 
 	if gotContentHash != wantTarballHash {
-		t.Errorf("X-Ops-Content-Hash = %q, want sha256(tarball) = %q", gotContentHash, wantTarballHash)
+		t.Errorf("X-Ops-Content-Hash = %q, want sha1(tarball) = %q", gotContentHash, wantTarballHash)
 	}
 	if gotContentHash == fullBodyHash {
 		t.Errorf("X-Ops-Content-Hash = %q hashes the whole multipart body; it must hash the tarball only", gotContentHash)
@@ -421,7 +421,7 @@ func TestCookbooksDeleteSignsRequest(t *testing.T) {
 	if _, _, err := c.Cookbooks.Delete(context.Background(), "apache2"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	if sign != "version=1.3" {
+	if sign != "algorithm=sha1;version=1.1;" {
 		t.Errorf("X-Ops-Sign = %q, want signed request", sign)
 	}
 }
