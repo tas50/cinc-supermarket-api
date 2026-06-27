@@ -1,10 +1,10 @@
-# cinc-supermarket
+# cinc-supermarket-api
 
 A Go client for the [Chef Supermarket API](https://docs.chef.io/supermarket/supermarket_api/).
 
 ## Install
 
-    go get github.com/tas50/cinc-supermarket
+    go get github.com/tas50/cinc-supermarket-api
 
 ## Usage
 

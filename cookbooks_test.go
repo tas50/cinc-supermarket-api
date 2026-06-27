@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tas50/cinc-supermarket/internal/signing"
+	"github.com/tas50/cinc-supermarket-api/internal/signing"
 )
 
 func TestCookbooksListReturnsPaginatedResults(t *testing.T) {
