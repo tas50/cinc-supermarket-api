@@ -1,0 +1,92 @@
+{
+  "vectors": [
+    {
+      "name": "get_no_body",
+      "method": "GET",
+      "path": "/api/v1/cookbooks",
+      "body": "",
+      "user_id": "tester",
+      "timestamp": "2024-01-01T00:00:00Z",
+      "content_hash": "2jmj7l5rSw0yVb/vlWAYkK/YBwk=",
+      "canonical": "Method:GET\nHashed Path:lup0rpFkH/dwYCC2lwsseCTAje0=\nX-Ops-Content-Hash:2jmj7l5rSw0yVb/vlWAYkK/YBwk=\nX-Ops-Timestamp:2024-01-01T00:00:00Z\nX-Ops-UserId:q02NKl9IChNwZ9oXEAJxzRdmB6E=",
+      "headers": {
+        "X-Ops-Sign": "algorithm=sha1;version=1.1;",
+        "X-Ops-Userid": "tester",
+        "X-Ops-Timestamp": "2024-01-01T00:00:00Z",
+        "X-Ops-Content-Hash": "2jmj7l5rSw0yVb/vlWAYkK/YBwk=",
+        "X-Ops-Authorization-1": "RRbaoUACkL7WltDLjCsTtLbIDGDoIfWoOII9VxuqrIEx82SYtxu9cRKj2/HI",
+        "X-Ops-Authorization-2": "TRlNfWHm4qm6fgWM7G5vY7xa36OPvy7REAQYmk0xTdIDdsX0BnKSronqfOfM",
+        "X-Ops-Authorization-3": "hFa7gTtMD76LMYIPYBfUl52Aw+1LJo3eRTRi1c30nS3dPGtfYyDbWm4UAd5S",
+        "X-Ops-Authorization-4": "II2uHwf5fGZph4wV/9Wd/HDaucpkwWO8DU0CJuLuWcDs/BQ3l34NIuQSEKdZ",
+        "X-Ops-Authorization-5": "xeAQn+VMK7CW9XxC6LbnBQKTox/1hKqG0g7IkGgyIjiMo9Hh+lift41VCrTO",
+        "X-Ops-Authorization-6": "XiXF2/LQatz5hVWmatCUyACzPRZrcdpC9kBx0xrRMg=="
+      }
+    },
+    {
+      "name": "post_json_body",
+      "method": "POST",
+      "path": "/api/v1/cookbooks",
+      "body": "eyJhIjoxfQ==",
+      "user_id": "tester",
+      "timestamp": "2024-01-01T00:00:00Z",
+      "content_hash": "n4nHQM60bXQYySSnisV5QdXpZSA=",
+      "canonical": "Method:POST\nHashed Path:lup0rpFkH/dwYCC2lwsseCTAje0=\nX-Ops-Content-Hash:n4nHQM60bXQYySSnisV5QdXpZSA=\nX-Ops-Timestamp:2024-01-01T00:00:00Z\nX-Ops-UserId:q02NKl9IChNwZ9oXEAJxzRdmB6E=",
+      "headers": {
+        "X-Ops-Sign": "algorithm=sha1;version=1.1;",
+        "X-Ops-Userid": "tester",
+        "X-Ops-Timestamp": "2024-01-01T00:00:00Z",
+        "X-Ops-Content-Hash": "n4nHQM60bXQYySSnisV5QdXpZSA=",
+        "X-Ops-Authorization-1": "BbNba2gSXA0oFDaw2lnq9j5JpU7BXPrUD676vQWBpbV+BxWtcO5w/him2XvJ",
+        "X-Ops-Authorization-2": "xVsGIH+ad3XR1U3wKKps3olwVPioGLNDV0CX7Y70ULjrHkdtbPUnNqP+Zbzx",
+        "X-Ops-Authorization-3": "9eF2pasNa6/JwyvlAR1QYDwMgpte87M3BdYMcMLeLeFjRlvGdYB3FCOVB/BB",
+        "X-Ops-Authorization-4": "ofvma61Lz5Euj0B1FGz5QI9PElmRh79SWSizacJdqD9YjhPaiqX3uPMryN1N",
+        "X-Ops-Authorization-5": "xfyWKW3Q5Yo0kZA26ViAi2Vjwh0EcNqjJ/AkOyHnjMWxPhoud9kuZhXb0XEy",
+        "X-Ops-Authorization-6": "IMP49ypIsXa2UBjKBL8ZKWdWdJtLr7LH8WvXBM7OjA=="
+      }
+    },
+    {
+      "name": "post_tarball_body",
+      "method": "POST",
+      "path": "/api/v1/cookbooks",
+      "body": "RkFLRS1UQVItQllURVM=",
+      "user_id": "alice",
+      "timestamp": "2026-06-27T12:34:56Z",
+      "content_hash": "tI48uXbHBtJnrKGhqsyjZS+wSME=",
+      "canonical": "Method:POST\nHashed Path:lup0rpFkH/dwYCC2lwsseCTAje0=\nX-Ops-Content-Hash:tI48uXbHBtJnrKGhqsyjZS+wSME=\nX-Ops-Timestamp:2026-06-27T12:34:56Z\nX-Ops-UserId:UisnajVr3zkBPfq+os1D4UHsyeg=",
+      "headers": {
+        "X-Ops-Sign": "algorithm=sha1;version=1.1;",
+        "X-Ops-Userid": "alice",
+        "X-Ops-Timestamp": "2026-06-27T12:34:56Z",
+        "X-Ops-Content-Hash": "tI48uXbHBtJnrKGhqsyjZS+wSME=",
+        "X-Ops-Authorization-1": "Lf2eTkhCHTAb/AT+3UoY9sl0GFKsMpCvCLtqAd4aeZsCjblwIGCTvtY0LMqL",
+        "X-Ops-Authorization-2": "WUVF2arI81MhAIVwLRjkyKuc8fjbAQ3HlCxy49Emg1v7w4l9+eWvrEvvBHDR",
+        "X-Ops-Authorization-3": "bhOgA0dCSqaYvE6ypsoBIL0+2ssGI3Z63aU47Sna+dGeMSQ3FOIkdPs2hLWA",
+        "X-Ops-Authorization-4": "Fj/0WEoQv3oix4NC9zBYkO32Gga/AxU0J3F8jeAfEu9q5URg/jnugf8FV76N",
+        "X-Ops-Authorization-5": "PZquCKcfV7LqhNirWBrMsLQ1GAJ8up7tvnPCyPVppQ0dH7xxt9r5ui3S1h42",
+        "X-Ops-Authorization-6": "fosb1D0o78FXcUf82K5xCa1/6t4BDVzQKxytmy7I+A=="
+      }
+    },
+    {
+      "name": "delete_messy_path",
+      "method": "DELETE",
+      "path": "//api/v1//cookbooks/apache2/",
+      "body": "",
+      "user_id": "bob",
+      "timestamp": "2024-12-31T23:59:59Z",
+      "content_hash": "2jmj7l5rSw0yVb/vlWAYkK/YBwk=",
+      "canonical": "Method:DELETE\nHashed Path:SR1tzeN7VKer6GHw5gLN7Tt8fcw=\nX-Ops-Content-Hash:2jmj7l5rSw0yVb/vlWAYkK/YBwk=\nX-Ops-Timestamp:2024-12-31T23:59:59Z\nX-Ops-UserId:SBgazSKz7a68ikR4aKfffOYpkgo=",
+      "headers": {
+        "X-Ops-Sign": "algorithm=sha1;version=1.1;",
+        "X-Ops-Userid": "bob",
+        "X-Ops-Timestamp": "2024-12-31T23:59:59Z",
+        "X-Ops-Content-Hash": "2jmj7l5rSw0yVb/vlWAYkK/YBwk=",
+        "X-Ops-Authorization-1": "hhvTO70AkvBedoOjr40BjMLtnzNLUIxer7K05GyP8J+AQ7cQs7lZYJwhIiU8",
+        "X-Ops-Authorization-2": "dimi0zew83CrWQlK2+0FXDlKoooF0fXfUdk1RBOnHpoYL6rcm5uFjL7WLZDu",
+        "X-Ops-Authorization-3": "bHt6ew1dvnTFi329dPiqo5uDksM2uefITN0lJ0m+dSLKQ8UHVvT9pQg6cBwJ",
+        "X-Ops-Authorization-4": "kXvqmO8yuV+CRVmreDOXKzzDqpN3IO8q3DGvBTX0ne53Sq72zyqrnUuYSnmt",
+        "X-Ops-Authorization-5": "2gFjtmfCbMfMibHRcD+FZZMuSTkAj1VGQjAwgdfPBdKldmqPEXyade54PWpS",
+        "X-Ops-Authorization-6": "xcGXGMZCLpuAGQ3CB/v+j2XQtIWsw26YRxirMsbbTw=="
+      }
+    }
+  ]
+}

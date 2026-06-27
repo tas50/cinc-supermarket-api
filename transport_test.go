@@ -190,7 +190,7 @@ func TestTransportDoesNotRetryOnContextCancel(t *testing.T) {
 	}
 }
 
-// TestTransportPreservesQueryStringOnTheWire — the v1.3 canonical
+// TestTransportPreservesQueryStringOnTheWire — the signed canonical
 // request strips the query string before signing (signing.CanonicalPath
 // is exercised by the signing package), but the request that hits the
 // server still carries the query. This guards against accidentally
