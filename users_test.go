@@ -29,15 +29,17 @@ func TestUsersGetReturnsProfile(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/users/alice", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		// Supermarket maps each owned/followed cookbook name to its API
+		// URL (see UserCookbooks), and omits a relationship key when it's
+		// empty — so "follows" is absent here and must decode to nil.
 		_, _ = io.WriteString(w, `{
 			"username":"alice","name":"Alice","company":"Acme",
 			"github":["alice","alice2"],
 			"cookbooks":{
-				"owns":[{"cookbook_name":"apache2","cookbook":"u","cookbook_description":"","cookbook_maintainer":"alice"}],
-				"collaborates":[],
-				"follows":[]
+				"owns":{"apache2":"https://supermarket.chef.io/api/v1/cookbooks/apache2"},
+				"collaborates":{}
 			},
-			"tools":{"owns":[]}
+			"tools":{"owns":{"knife-foo":"https://supermarket.chef.io/api/v1/tools/knife-foo"}}
 		}`)
 	})
 	srv := httptest.NewServer(mux)
@@ -51,8 +53,14 @@ func TestUsersGetReturnsProfile(t *testing.T) {
 	if u.Username != "alice" || len(u.GitHub) != 2 {
 		t.Errorf("u = %+v", u)
 	}
-	if len(u.Cookbooks.Owns) != 1 || u.Cookbooks.Owns[0].Name != "apache2" {
-		t.Errorf("Owns = %+v", u.Cookbooks.Owns)
+	if got := u.Cookbooks.Owns["apache2"]; got != "https://supermarket.chef.io/api/v1/cookbooks/apache2" {
+		t.Errorf("Owns[apache2] = %q, want the cookbook URL", got)
+	}
+	if u.Cookbooks.Follows != nil {
+		t.Errorf("Follows should decode to nil when the key is absent, got %+v", u.Cookbooks.Follows)
+	}
+	if got := u.Tools.Owns["knife-foo"]; got != "https://supermarket.chef.io/api/v1/tools/knife-foo" {
+		t.Errorf("Tools.Owns[knife-foo] = %q, want the tool URL", got)
 	}
 }
 
@@ -64,7 +72,7 @@ func TestUsersGetExposesSlack(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{
 			"username":"alice","name":"Alice","twitter":"@alice","slack":"alice-slack",
-			"github":[],"cookbooks":{"owns":[],"collaborates":[],"follows":[]},"tools":{"owns":[]}
+			"github":[],"cookbooks":{"owns":{},"collaborates":{},"follows":{}},"tools":{"owns":{}}
 		}`)
 	})
 	srv := httptest.NewServer(mux)

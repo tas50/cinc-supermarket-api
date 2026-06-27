@@ -19,15 +19,24 @@ type User struct {
 }
 
 // UserCookbooks groups the cookbook relationships on a user profile.
+//
+// Supermarket serializes each relationship as a JSON object mapping the
+// cookbook name to its API URL (e.g. {"apache2": ".../cookbooks/apache2"}),
+// NOT as an array of cookbook records — and it omits a relationship key
+// entirely when it's empty, so an absent group decodes to a nil map. The
+// contract suite (contract_live_test.go) is what pins this shape against the
+// live API.
 type UserCookbooks struct {
-	Owns         []CookbookSummary `json:"owns"`
-	Collaborates []CookbookSummary `json:"collaborates"`
-	Follows      []CookbookSummary `json:"follows"`
+	Owns         map[string]string `json:"owns"`
+	Collaborates map[string]string `json:"collaborates"`
+	Follows      map[string]string `json:"follows"`
 }
 
-// UserTools groups the tool relationships on a user profile.
+// UserTools groups the tool relationships on a user profile. Like
+// UserCookbooks, Supermarket maps each tool name to its API URL and omits
+// the key when there are none.
 type UserTools struct {
-	Owns []ToolSummary `json:"owns"`
+	Owns map[string]string `json:"owns"`
 }
 
 // UsersService accesses the /users endpoints.
